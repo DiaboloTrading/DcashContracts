@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="83d4e545-ab42-456b-a3ac-d6ccb373d847" name="Default Changelist" comment="validate stake reward amount before withdraw,&#10;misc validations, fixes typo" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Solidity Contract" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="1oEq3ZsXvKiZJ0aGWJtjGYo5UfA" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/Smart Contracts/lib" />
+    <property name="nodejs_package_manager_path" value="npm" />
+    <property name="vue.rearranger.settings.migration" value="true" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/Smart Contracts/lib" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/Smart Contracts/DFP" />
+    </key>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="83d4e545-ab42-456b-a3ac-d6ccb373d847" name="Default Changelist" comment="" />
+      <created>1612861898598</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1612861898598</updated>
+      <workItem from="1612861902944" duration="326000" />
+      <workItem from="1612906868636" duration="854000" />
+      <workItem from="1613082895587" duration="1505000" />
+      <workItem from="1613123391838" duration="26000" />
+      <workItem from="1613841111711" duration="1108000" />
+      <workItem from="1614099048808" duration="316000" />
+    </task>
+    <task id="LOCAL-00001" summary="updated dcash staking">
+      <created>1613088254570</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1613088254570</updated>
+    </task>
+    <task id="LOCAL-00002" summary="implemented DFP contract, updated staking contract">
+      <created>1613842490902</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1613842490902</updated>
+    </task>
+    <task id="LOCAL-00003" summary="validate stake reward amount before withdraw,&#10;misc validations, fixes typo">
+      <created>1614099354917</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1614099354917</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="updated dcash staking" />
+    <MESSAGE value="implemented DFP contract, updated staking contract" />
+    <MESSAGE value="validate stake reward amount before withdraw,&#10;misc validations, fixes typo" />
+    <option name="LAST_COMMIT_MESSAGE" value="validate stake reward amount before withdraw,&#10;misc validations, fixes typo" />
+  </component>
+</project>

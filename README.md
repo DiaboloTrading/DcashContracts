@@ -1,10 +1,10 @@
 Diabolo.io Copy Trading Platform
 
-# Diabolo Fund Performance & Staking reward protocol  
+# DCASH Stacking Performance & Staking reward protocol  
 
 - [ABSTRACT](#abstract)
-- [DIABOLO FUND PERFORMANCE](#diabolofundperformance)
-  - [The role of the Diabolo Fund Performance smart oracle](#theroleofthediabolofundperformancesmartoracle)
+- [DCASH STACKING PERFORMANCE](#diabolofundperformance)
+  - [The role of the DCASH STACKING PERFORMANCE smart oracle](#theroleofthediabolofundperformancesmartoracle)
   - [Calculation of the performance of DFP](#calculationoftheperformanceofdfp)
 - [DIABOLO STAKING PROTOCOL](#diabolostakingprotocol)
   - [Calculation of the Individual Monthly Staking Reward (IMSR)](#calculationoftheindividualmonthlystakingreward(imsr))
@@ -21,9 +21,9 @@ In this perspective, Diabolo developped an innovative staking reward protocol wh
 
 ![Image of Gobal Overview](https://github.com/crypto4all/Diabolo/blob/main/Diabolo%20Fund%20Performance%20and%20Staking%20mechanism%20Overview.png)
  
-## II.	DIABOLO FUND PERFORMANCE  
+## II.	DIABOLO STACKING PERFORMANCE  
 
-The Diabolo Fund Performance (DFP) will replicate automatically the performance made by Diabolo’s top traders. At the start of the DFP, initial invested amount (FTA) will be deposited on Diabolo’s corporate Business Account (opened on partnered crypto exchange platform such as Binance) which will be used to initiate the investment strategy (copy trading). The DFP will replicate the global performance of whitelisted top traders from Diabolo.io
+The Diabolo STACKING Performance (DFP) will replicate automatically the performance made by Diabolo’s top traders. At the start of the DFP, initial invested amount (FTA) will be deposited on Diabolo’s corporate Business Account (opened on partnered crypto exchange platform such as Binance) which will be used to initiate the investment strategy (copy trading). The DFP will replicate the global performance of whitelisted top traders from Diabolo.io
 
 Currently all traders on Diabolo’s platform could only replicate best trader’s performance through manually process trading. It will allow automate replication of trader’s performance by using a smart oracle plugged into Diabolo’s corporate BA.
 

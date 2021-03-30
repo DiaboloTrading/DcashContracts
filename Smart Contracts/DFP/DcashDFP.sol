@@ -26,6 +26,10 @@ contract DcashDFP is ChainlinkClient, Ownable {
     bytes32 private jobId;
     uint256 private fee;
 
+    // history of gains %
+    uint256[] private profitPctHistory;
+    uint256 private totalProfit;
+
 
     constructor() public {
         setPublicChainlinkToken();
@@ -66,6 +70,34 @@ contract DcashDFP is ChainlinkClient, Ownable {
     }
 
     /**
+     * Get total sum of profit %
+     */
+    function getTotalProfitPct() external view returns (uint256) {
+        return totalProfit;
+    }
+
+    /**
+     * Get profit % of current month
+     */
+    function getCurrentProfitPct() external view returns (uint256) {
+        return profitPctHistory[profitPctHistory.length - 1];
+    }
+
+    /**
+     * Get profit % of last month
+     */
+    function getLastProfitPct() external view returns (uint256) {
+        return profitPctHistory[profitPctHistory.length - 2];
+    }
+
+    /**
+     * Get total volume = balance of CEX account
+     */
+    function getCurrentFunds() external view returns (uint256) {
+        return volume;
+    }
+
+    /**
      * Withdraw LINK from this contract by only admin
      */
     function withdrawLink() external onlyOwner {
@@ -94,6 +126,9 @@ contract DcashDFP is ChainlinkClient, Ownable {
             gainPct = 0;
             gainDividendAmount = 0;
         }
+
+        profitPctHistory.push(gainPct);
+        totalProfit = totalProfit.add(gainPct);
 
         volume = _volume;
     }

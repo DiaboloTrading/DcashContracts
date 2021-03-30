@@ -6,12 +6,7 @@ import "./lib/SafeMath.sol";
 import "./lib/Ownable.sol";
 import "./lib/Address.sol";
 
-/**
- * Interface for DFP contract
- */
-interface IDcashDFP {
-    function getMonthlyGainsDistribution() external view returns (uint256);
-}
+// SPDX-License-Identifier: GPL-3.0
 
 contract StakingContract is Ownable {
     using SafeMath for uint;
@@ -29,7 +24,6 @@ contract StakingContract is Ownable {
 
     ERC20 public token;
     ERC20 public daiToken;
-    IDcashDFP public dfpContract;
 
     bool public isStakingAllowed;
 
@@ -74,11 +68,9 @@ contract StakingContract is Ownable {
     /**
      * Initialize the contract
      */
-    constructor(address payable _token, address payable _daiAddress, address payable _dfpContract) public {
+    constructor (address payable _token, address payable _daiAddress) {
         token = ERC20(_token);
         daiToken = ERC20(_daiAddress);
-        dfpContract = IDcashDFP(_dfpContract);
-
         isStakingAllowed = true;
         newMonthStartTime = block.timestamp;
     }
@@ -194,11 +186,8 @@ contract StakingContract is Ownable {
     /**
      * @dev Internal function to calculate reward
      */
-    function _calculateStakeReward(uint _stakeAmount) internal returns(uint) {
+    function _calculateStakeReward(uint _stakeAmount) internal view returns(uint) {
         if (_isGainedMonth() == false) return 0;
-
-        // get total distribution amount from DFP contract
-        totalMonthlyGain = dfpContract.getMonthlyGainsDistribution();
 
         return _stakeAmount.div(totalStakedAmount).mul(totalMonthlyGain);
     }
@@ -216,7 +205,7 @@ contract StakingContract is Ownable {
      */
     function processStake() public onlyOwner {
         require(isStakingAllowed, "Staking is not allowed");
-        require(newMonthStartTime + MONTH < now, "Earlier than monthly period");
+        require(newMonthStartTime + MONTH < block.timestamp, "Earlier than monthly period");
 
         _processStake();
     }
@@ -295,14 +284,4 @@ contract StakingContract is Ownable {
         emit UpdateTokenInfo();
     }
 
-    /**
-     * @dev Admin function to update DFP contract address
-     */
-    function updateDFPContract(address _dfpContract) public onlyOwner {
-        require(_dfpContract.isContract());
-
-        dfpContract = IDcashDFP(_dfpContract);
-
-        emit UpdateDFPContract();
-    }
 }

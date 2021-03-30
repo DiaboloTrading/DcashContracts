@@ -16,7 +16,7 @@ The Diabolo Staking Contract is based on ERC20 standards with additionnal custom
 | pendingWithdrawTime | uint | Pending withdraw process status
 | registered | boolean | Status to check the registration of StakeInfo data
 | isStakingAllowed | boolean | Status to check if the staking contract is paused or running
-| totalMonthlyGain | uint | Total gain made bu the Dcash Fund Performance contract
+| totalMonthlyGain | uint | Total gain made bu the Dcash Staking Performance contract
 | newMonthStartTime | uint | Upcomin staking month timestamp
 | stakersList | list | List of all stakers addresses registered
 | stakerLedger | mapping (address => StakeInfo) | Variable allowing to add an address approved with the respected amount
@@ -45,7 +45,7 @@ This function is used to  claim the cumulated DAI rewards
 This function allows to calculate the final rewards for all stakers for the ended month. A reset is done for the new eligible month.
 
 ##### Function _calculateStakeReward()
-This function is used to calculate for each staker the DAI rewards if the Gain is positive. In case if it's negative or zero it will no be rewarded for this month indeed the Dcash Fund will pay the losses to not impact the stakers for this perdiod.
+This function is used to calculate for each staker the DAI rewards if the Gain is positive. In case if it's negative or zero it will no be rewarded for this month indeed the Dcash team will pay the losses to not impact the stakers for this perdiod.
 
 ##### Function _isStakeLocked()
 This function is used to check if the staking amount was not claimed before the end of the 30 days staking period.
@@ -64,3 +64,12 @@ This function provides a way to the admin to withdraw all DAI in case of emergen
 
 ##### Function resumeStaking
 This function provides a way to resume the staking contract called by the owner.
+
+##### Function getStakedAmount
+This function retrieves the staked DCASH token for the account
+
+##### Function getRewardAmount
+This function retrieves the the reward DAI amount for the account
+
+##### Function getTransactions
+This function retrieves the history of rewards/claims for user depending on their wallet address

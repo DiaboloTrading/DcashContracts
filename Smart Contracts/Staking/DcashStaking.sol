@@ -8,22 +8,38 @@ import "./lib/Address.sol";
 
 // SPDX-License-Identifier: GPL-3.0
 
+/**
+ * Interface for DFP contract
+ */
+interface IDcashDFP {
+    function getMonthlyGainsDistribution() external view returns (uint256);
+}
+
 contract StakingContract is Ownable {
     using SafeMath for uint;
     using Address for address;
+
+    enum TransactionType { RECEIVE, CLAIM }
 
     struct StakeInfo {
         uint stakeAmount;
         uint stakeTime;
         uint lastStakeAmount;
         uint lastStakeTime;
-        uint pendingWithdrawAmount;
-        uint pendingWithdrawTime;
+        uint lastWithdrawAmount;
+        uint lastWithdrawTime;
         bool registered;
+    }
+
+    struct Transaction {
+        uint timestamp;
+        TransactionType txType;
+        uint amount;
     }
 
     ERC20 public token;
     ERC20 public daiToken;
+    IDcashDFP public dfpContract;
 
     bool public isStakingAllowed;
 
@@ -34,8 +50,13 @@ contract StakingContract is Ownable {
     uint public DAI_DECIMALS = 18;
 
     uint public totalStakedAmount;
+
+    uint public totalPreviousMonthlyStakedAmount =1;
+
     // this value should be fetched from DFP contract
     uint public totalMonthlyGain;
+    uint public totalcumulatedMonthlyGain;
+
     // base timestamp that new month started
     uint public newMonthStartTime;
 
@@ -43,6 +64,7 @@ contract StakingContract is Ownable {
 
     mapping (address => StakeInfo) public stakerLedger;
     mapping (address => uint256) public stakeRewards;
+    mapping (address => Transaction[]) public transactions;
 
     event RequestStake(address indexed _stakerAddress, uint indexed _amount, uint indexed _timestamp);
     event WithdrawStake(address indexed _stakerAddress, uint indexed _amount, uint indexed _timestamp);
@@ -68,13 +90,53 @@ contract StakingContract is Ownable {
     /**
      * Initialize the contract
      */
-    constructor (address payable _token, address payable _daiAddress) {
+    constructor (address _token, address _daiAddress, address _dfpContract, uint _newMonthStartTime) public {
         token = ERC20(_token);
         daiToken = ERC20(_daiAddress);
+        dfpContract = IDcashDFP(_dfpContract);
+
         isStakingAllowed = true;
-        newMonthStartTime = block.timestamp;
+        newMonthStartTime = _newMonthStartTime;
     }
 
+    /**
+     * @dev Function to retrieve the staked DCASH token for the account
+     */
+    function getStakedAmount() public view returns (uint) {
+        return stakerLedger[msg.sender].stakeAmount.add(stakerLedger[msg.sender].lastStakeAmount);
+    }
+
+    /**
+     * @dev Function to retrieve the total DCASH token
+     */
+    function getTotalStakedAmount() public view returns (uint) {
+        return totalStakedAmount;
+    }
+
+    /**
+     * @dev Function to retrieve the reward DAI amount for the account
+     */
+    function getRewardAmount() public view returns (uint) {
+        return stakeRewards[msg.sender];
+    }
+
+    /**
+     * @dev Function to retrieve the history of rewards/claims for user
+     */
+    function getTransactions() public view returns (uint[] memory, uint[] memory, uint[] memory) {
+        uint[] memory timestamps = new uint[](transactions[msg.sender].length);
+        uint[] memory types = new uint[](transactions[msg.sender].length);
+        uint[] memory amounts = new uint[](transactions[msg.sender].length);
+
+        for (uint i = 0; i < transactions[msg.sender].length; i++) {
+            Transaction storage transaction = transactions[msg.sender][i];
+            timestamps[i] = transaction.timestamp;
+            types[i] = uint(transaction.txType);
+            amounts[i] = transaction.amount;
+        }
+
+        return (timestamps, types, amounts);
+    }
 
     /**
      * @dev Function to accept stake request using DCASH token
@@ -82,6 +144,7 @@ contract StakingContract is Ownable {
      * @param _stakeAmount uint Stake amount
      */
     function stakeDcash(uint _stakeAmount) public isStakeAllowed returns (bool) {
+        require(_stakeAmount > 0, "Invalid deposit amount");
         require(token.transferFrom(msg.sender, address(this), _stakeAmount * 10**DCASH_DECIMALS), "Failed transferFrom for stake");
 
         if (stakerLedger[msg.sender].registered) {
@@ -116,16 +179,21 @@ contract StakingContract is Ownable {
      * @param _withdrawAmount uint wothdrow amount
      */
     function withdrawDcash(uint _withdrawAmount) public isValidStaker() returns (bool) {
-        require(_withdrawAmount < stakerLedger[msg.sender].stakeAmount.sub(stakerLedger[msg.sender].pendingWithdrawAmount), "Requested withdraw amount exceed available amount");
+        require(_withdrawAmount > 0, "Invalid withdraw amount");
+        require(_withdrawAmount <= stakerLedger[msg.sender].stakeAmount, "Requested withdraw amount exceed available amount");
 
-        // update pending withdraw amount
-        stakerLedger[msg.sender].pendingWithdrawAmount = stakerLedger[msg.sender].pendingWithdrawAmount.add(_withdrawAmount);
-        stakerLedger[msg.sender].pendingWithdrawTime = block.timestamp;
+        // update staking info
+        stakerLedger[msg.sender].stakeAmount = stakerLedger[msg.sender].stakeAmount.sub(_withdrawAmount);
+        stakerLedger[msg.sender].lastWithdrawAmount = _withdrawAmount;
+        stakerLedger[msg.sender].lastWithdrawTime = block.timestamp;
+
+        // reduce totalStakedAmount
+        totalStakedAmount = totalStakedAmount.sub(_withdrawAmount);
 
         // transfer staked tokens back to owner
         token.transfer(msg.sender, _withdrawAmount * 10**DCASH_DECIMALS);
 
-        emit WithdrawStake(msg.sender, stakerLedger[msg.sender].stakeAmount, block.timestamp);
+        emit WithdrawStake(msg.sender, _withdrawAmount, block.timestamp);
 
         return true;
     }
@@ -133,19 +201,23 @@ contract StakingContract is Ownable {
     /**
      * @dev Function to withdraw accumulated rewards
      *
+     * @param _withdrawAmount uint wothdrow amount
      */
 
-    function withdrawRewards() public isValidStaker() returns (bool) {
-        require(stakeRewards[msg.sender] > 0, "No reward for the address");
+    function withdrawRewards(uint _withdrawAmount) public isValidStaker() returns (bool) {
+        require(_withdrawAmount > 0, "Invalid withdraw amount");
+        require(stakeRewards[msg.sender] > 0, "No reward for the address this month");
+        require(stakeRewards[msg.sender] >= _withdrawAmount, "Insufficient reward amount requested");
 
-        uint amount = stakeRewards[msg.sender];
+        stakeRewards[msg.sender] = stakeRewards[msg.sender].sub(_withdrawAmount);
 
-        stakeRewards[msg.sender] = 0;
+        // update transactions
+        transactions[msg.sender].push(Transaction(block.timestamp, TransactionType.CLAIM, _withdrawAmount));
 
         // transfer staked tokens back to owner
-        daiToken.transfer(msg.sender, amount * 10**DAI_DECIMALS);
+        daiToken.transfer(msg.sender, _withdrawAmount * 10**DAI_DECIMALS);
 
-        emit WithdrawReward(msg.sender, amount);
+        emit WithdrawReward(msg.sender, _withdrawAmount);
 
         return true;
     }
@@ -158,7 +230,11 @@ contract StakingContract is Ownable {
         for (uint8 i = 0; i < stakersList.length; i++) {
             StakeInfo storage stakeInfo = stakerLedger[stakersList[i]];
             if (!_isStakeLocked(stakeInfo.stakeTime) && stakeInfo.stakeAmount > 0) {
-                stakeRewards[stakersList[i]] = stakeRewards[stakersList[i]].add(_calculateStakeReward(stakeInfo.stakeAmount));
+                uint newReward = _calculateStakeReward(stakeInfo.stakeAmount);
+                stakeRewards[stakersList[i]] = stakeRewards[stakersList[i]].add(newReward);
+
+                // add to transactions
+                transactions[stakersList[i]].push(Transaction(block.timestamp, TransactionType.RECEIVE, newReward));
             }
 
             // process DCASH staked last month
@@ -170,26 +246,25 @@ contract StakingContract is Ownable {
                 stakerLedger[stakersList[i]].lastStakeAmount = 0;
                 stakerLedger[stakersList[i]].lastStakeTime = 0;
             }
-
-            // process pending withdraw DCASH
-            if (stakeInfo.pendingWithdrawAmount > 0) {
-                stakerLedger[msg.sender].stakeAmount = stakerLedger[msg.sender].stakeAmount.sub(stakerLedger[msg.sender].pendingWithdrawAmount);
-                stakerLedger[msg.sender].pendingWithdrawAmount = 0;
-                stakerLedger[msg.sender].pendingWithdrawTime = 0;
-            }
         }
 
         // reset newMonthStartTime
-        newMonthStartTime = block.timestamp;
+        newMonthStartTime = newMonthStartTime + MONTH;
+
+
+        totalPreviousMonthlyStakedAmount = totalStakedAmount;
     }
 
     /**
      * @dev Internal function to calculate reward
      */
-    function _calculateStakeReward(uint _stakeAmount) internal view returns(uint) {
-        if (_isGainedMonth() == false) return 0;
+    function _calculateStakeReward(uint _stakeAmount) internal returns(uint) {
+        // get total distribution amount from DFP contract
+        totalMonthlyGain = dfpContract.getMonthlyGainsDistribution();
+        totalcumulatedMonthlyGain = totalcumulatedMonthlyGain.add(totalMonthlyGain);
 
-        return _stakeAmount.div(totalStakedAmount).mul(totalMonthlyGain);
+
+        return _stakeAmount.mul(totalMonthlyGain).div(totalPreviousMonthlyStakedAmount);
     }
 
     function _isStakeLocked(uint _stakedTime) internal view returns (bool) {
@@ -220,7 +295,7 @@ contract StakingContract is Ownable {
     }
 
     /**
-     * @dev Administrative to resume staking
+     * @dev Adminitstrative to resume staking
      */
     function resumeStaking() public onlyOwner {
         isStakingAllowed = true;
@@ -229,7 +304,7 @@ contract StakingContract is Ownable {
     }
 
     /**
-     * @dev Administrative to withdraw all DCASH tokens in emergency case
+     * @dev Adminitstrative to withdraw all DCASH tokens in emergency case
      */
     function withdrawDcashByAdmin() public onlyOwner {
         uint balance = token.balanceOf(address(this));
@@ -242,7 +317,7 @@ contract StakingContract is Ownable {
     }
 
     /**
-     * @dev Administrative to withdraw all DAI stable coins in emergency case
+     * @dev Adminitstrative to withdraw all DAI stable coins in emergency case
      */
     function withdrawDaiByAdmin() public onlyOwner {
         uint balance = daiToken.balanceOf(address(this));
@@ -254,7 +329,7 @@ contract StakingContract is Ownable {
     }
 
     /**
-     * @dev Administrative to set monthly gain manually
+     * @dev Adminitstrative to set monthly gain manually
      *
      * @param _amount uint Amount gained from trading
      */
@@ -264,7 +339,14 @@ contract StakingContract is Ownable {
     }
 
     /**
-     * @dev Administrative function to update token addresses for DCASH/DAI
+     * Update newMonthStartTime by admin
+     */
+    function setNewMonthStartTime(uint _newMonthStartTime) public onlyOwner {
+        newMonthStartTime = _newMonthStartTime;
+    }
+
+    /**
+     * @dev Administrative function to update Stablecoin addresses for TUSD/DAI
      *
      * @param _dcashToken address Token address of DCASH
      * @param _dcashDecimals uint Decimals of DCASH
@@ -283,5 +365,26 @@ contract StakingContract is Ownable {
 
         emit UpdateTokenInfo();
     }
+
+    /**
+     * @dev Admin function to update DFP contract address
+     */
+    function updateDFPContract(address _dfpContract) public onlyOwner {
+        require(_dfpContract.isContract());
+
+        dfpContract = IDcashDFP(_dfpContract);
+
+        emit UpdateDFPContract();
+    }
+
+    /**
+     * @dev Admin function to update totalPreviousMonthlyStakedAmount for the first monthly month.
+     */
+    function updatetotalPreviousMonthlyStakedAmount(uint _totalPreviousMonthlyStakedAmount) public onlyOwner {
+
+        totalPreviousMonthlyStakedAmount = _totalPreviousMonthlyStakedAmount;
+
+    }
+
 
 }

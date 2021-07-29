@@ -1,19 +1,26 @@
-pragma solidity ^0.6.0;
+// SPDX-License-Identifier: MIT
 
-import "./lib/ERC20.sol";
-import "./lib/SafeMath.sol";
-import "./lib/Ownable.sol";
-import "./lib/Address.sol";
-import "https://raw.githubusercontent.com/smartcontractkit/chainlink/develop/evm-contracts/src/v0.6/ChainlinkClient.sol";
+pragma solidity ^0.6.7;
+
+import "@chainlink/contracts/src/v0.6/ChainlinkClient.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/solc-0.6/contracts/token/ERC20/IERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/solc-0.6/contracts/utils/Address.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/solc-0.6/contracts/math/SafeMath.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/solc-0.6/contracts/access/Ownable.sol";
 
 contract DcashDFP is ChainlinkClient, Ownable {
     using SafeMath for uint;
+    using Address for address;
 
     // const value for dividend from monthly DFP performance gains amount
     uint8 public GAIN_DIVIDEND_PCT = 85;
+    uint constant MONTH = 30 days;
 
-    // last fund balance
+    // latest fund balance
     uint256 public volume;
+    // last month's balance
+    uint256 public lastMonthVolume;
+
     // nominated as a value multiplied by 100
     uint256 public gainPct;
     // gain distribution amount = 85% * gain
@@ -25,29 +32,56 @@ contract DcashDFP is ChainlinkClient, Ownable {
     address private oracle;
     bytes32 private jobId;
     uint256 private fee;
+    string private adapterUrl;
 
     // history of gains %
     uint256[] private profitPctHistory;
     uint256 private totalProfit;
 
+    // base timestamp that new month started
+    uint public newMonthStartTime;
 
-    constructor() public {
+    // variable related with keeper
+    address private keeperProxy;
+
+    event UpdateKeeperProxy(address indexed _keeperProxy);
+    event UpdateAdapterUrl();
+
+    modifier onlyKeeperProxy() {
+        require(msg.sender == owner() || msg.sender == keeperProxy, "Unauthorized access");
+        _;
+    }
+
+    constructor(uint _newMonthStartTime, uint _lastMonthVolume) public {
         setPublicChainlinkToken();
         oracle = 0x2f90A6D021db21e1B2A077c5a37B3C7E75D15b7e;
-        jobId = "29fa9aa13bf1468788b7cc4a500a45b8";  // todo replace jobId
+        jobId = "29fa9aa13bf1468788b7cc4a500a45b8";
         fee = 0.1 * 10 ** 18; // 0.1 LINK
+        adapterUrl = "http://167.99.136.158:8080/";
 
         isGain = false;
         volume = 0;
         gainPct = 0;
+        lastMonthVolume = _lastMonthVolume;
+
+        newMonthStartTime = _newMonthStartTime;
     }
 
     /**
      * Create a Chainlink request to retrieve CEX.io Account balance
      */
-    function requestVolumeData() public onlyOwner returns (bytes32 requestId)
+    function requestVolumeData() external onlyKeeperProxy returns (bytes32 requestId)
     {
         Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
+
+        // Set the URL to perform the GET request on
+        request.add("get", adapterUrl);
+
+        // Sends the request
+        request.add("path", "result");
+
+        // Multiply the result by 1000000000000000000 to remove decimals
+        request.addInt("times", 1);
 
         // Sends the request
         return sendChainlinkRequestTo(oracle, request, fee);
@@ -114,21 +148,101 @@ contract DcashDFP is ChainlinkClient, Ownable {
     }
 
     /**
+     * Update total profit amount by admin
+     */
+    function setTotalProfitByAdmin(uint _totalProfit) public onlyOwner {
+        totalProfit = _totalProfit;
+    }
+
+    /**
+     * Update monthly dividend amount by admin
+     */
+    function setMonthlyGainsDistributionByAdmin(uint _monthlyDistribution) public onlyOwner {
+        gainDividendAmount = _monthlyDistribution;
+    }
+
+
+    /**
+     * Update volumn amount by admin
+     */
+    function setVolumnByAdmin(uint _volume) public onlyOwner {
+        _calculatePerformance(_volume);
+    }
+
+    /**
+     * Update current profit by admin
+     */
+    function setCurrentProfitByAdmin(uint _currentProfit) public onlyOwner {
+        profitPctHistory.push(_currentProfit);
+    }
+
+    /**
+     * Update newMonthStartTime by admin
+     */
+    function setNewMonthStartTime(uint _newMonthStartTime) public onlyOwner {
+        newMonthStartTime = _newMonthStartTime;
+    }
+
+    /**
+     * Update lastMonthVolume by admin
+     */
+    function setLastMonthVolume(uint _lastMonthVolume) public onlyOwner {
+        lastMonthVolume = _lastMonthVolume;
+    }
+
+    /**
+     * Update newMonthStartTime by admin
+     */
+    function setJobInfo(bytes32 _jobId, address _oracleAddress) public onlyOwner {
+        jobId = _jobId;
+        oracle = _oracleAddress;
+    }
+
+    /**
+     * @dev Admin function to update KeeperProxy contract address
+     */
+    function updateKeeperProxy(address _keeperProxy) public onlyOwner {
+        require(_keeperProxy.isContract());
+
+        keeperProxy = _keeperProxy;
+
+        emit UpdateKeeperProxy(_keeperProxy);
+    }
+
+    /**
+     * Update adapterUrl by admin
+     */
+    function updateAdapterUrl(string memory _adapterUrl) public onlyOwner {
+        adapterUrl = _adapterUrl;
+
+        emit UpdateAdapterUrl();
+    }
+
+    /**
      * Internal function to calculate performance of DFP
+     * @notice this will calculate performance only by 1 month
      */
     function _calculatePerformance(uint256 _volume) internal {
-        if (_volume > volume) {
-            isGain = true;
-            gainPct = (_volume - volume).mul(100).div(volume);
-            gainDividendAmount = (_volume - volume).mul(GAIN_DIVIDEND_PCT).div(100);
-        } else {
-            isGain = false;
-            gainPct = 0;
-            gainDividendAmount = 0;
-        }
+        if (newMonthStartTime + MONTH < block.timestamp) {
+            if (_volume > lastMonthVolume) {
+                isGain = true;
+                gainPct = (_volume - lastMonthVolume).mul(100).div(lastMonthVolume);
+                gainDividendAmount = (_volume - lastMonthVolume).mul(GAIN_DIVIDEND_PCT).div(100);
+            } else {
+                isGain = false;
+                gainPct = 0;
+                gainDividendAmount = 0;
+            }
 
-        profitPctHistory.push(gainPct);
-        totalProfit = totalProfit.add(gainPct);
+            profitPctHistory.push(gainPct);
+            totalProfit = totalProfit.add(gainPct);
+
+            // update new month balance
+            lastMonthVolume = _volume - gainDividendAmount;
+
+            // update new month timestamp
+            newMonthStartTime = newMonthStartTime + MONTH;
+        }
 
         volume = _volume;
     }
